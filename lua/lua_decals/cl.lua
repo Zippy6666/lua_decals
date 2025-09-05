@@ -19,12 +19,15 @@ local antmat5       = Material("decals/antlion/shot5")
 local fleshMats     = {mat1, mat2, mat3, mat4, mat5}
 local alienMats     = {alienmat1, alienmat2, alienmat3, alienmat4, alienmat5}
 local antlionMats   = {antmat1, antmat2, antmat3, antmat4, antmat5}
+local preventUtilDecalEXWrapper = false
 
 -- Adds another model duplicate that renders on top of the original model, 
 -- this model can then have decals applied to it
 -- You can create as many layers as you want, but be aware that each layer is another model to render
 -- so it can get expensive
 function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
+    if self:IsWorld() then return end -- This is not supported for the world
+    
     self.LUADecals_ModelLayers = self.LUADecals_ModelLayers or {}
 
     local mdlLayer = ClientsideModel(self:GetModel(), RENDERGROUP_TRANSLUCENT)
@@ -75,6 +78,8 @@ function ENT:LUADecals_Add(
     height,     -- : number
     n_limit     -- : number
 ) --> nil
+    if self:IsWorld() then return end -- This is not supported for the world
+
     -- Init n applied decals counter
     self.LuaDecals_nAppliedDecals = self.LuaDecals_nAppliedDecals or 0
 
@@ -104,13 +109,27 @@ function ENT:LUADecals_Add(
 
     -- Apply decal
     if IsValid(entToApplyTo) then
+        preventUtilDecalEXWrapper = true
         util.DecalEx(material, entToApplyTo, pos, nrm, col, width, height)
+        print(material)
+        preventUtilDecalEXWrapper = false
 
         -- Increment decal count
         entToApplyTo.LuaDecals_nAppliedDecals = entToApplyTo.LuaDecals_nAppliedDecals + 1
         print(entToApplyTo.LuaDecals_nAppliedDecals, "decals added to", entToApplyTo)
     end
 end
+
+-- EXPERIMENTAL: Add a wrapper for util.DecalEx so that fancy blood mods
+-- utilize this system unwillingly
+util.DecalEx = conv.wrapFunc( "luadecals_override", util.DecalEx, function(material, entToApplyTo, pos, nrm, col, width, height)
+    if preventUtilDecalEXWrapper then return end
+
+    -- Override
+    entToApplyTo:LUADecals_Add(material, pos, nrm, col, width, height, 3)
+
+    return true -- return something to skip rest of call
+end)
 
 -- Fire bullet hook clientside, will only exist in multiplayer!
 hook.Add("EntityFireBullets", "luadecals_bulletimpact", function( ent, data )
