@@ -1,70 +1,35 @@
 local ENT = FindMetaTable("Entity")
 
-LUADecals.ents = {} 
+-- Adds another model duplicate that renders on top of the original model, 
+-- this model can then have decals applied to it
+-- You can create as many layers as you want, but be aware that each layer is another model to render
+-- so it can get expensive
+function ENT:LUADecals_AddModelLayer()
+    local mdl = ClientsideModel(self:GetModel(), RENDERGROUP_OPAQUE)
+    
+    -- Mimic the original entity's position and angles
+    mdl:SetPos(self:GetPos())
+    mdl:SetAngles(self:GetAngles())
+    
+    -- Bone merge
+    mdl:SetParent(self)
+    mdl:AddEffects(EF_BONEMERGE)
 
-function ENT:LUADecals_Add(material_name, pos, nrm)
-    -- Initialize if not done already.
-    if !self.LUADecals then 
-        self.LUADecals /* : Sequence[LUADecal] */ = {} 
+    -- Debug: color however we like
+    mdl:SetRenderMode(RENDERMODE_TRANSCOLOR)
+    mdl:SetColor(Color(255,0,0,255))
 
-        table.insert(LUADecals.ents, self)
-    end
+    -- Spawn
+    mdl:Spawn()
 
-    local mat = Material(material_name)
-
-    -- Add LUADecal object to self.
-    local lua_decal = {
-        imesh = Mesh(mat),
-        mat = mat,
-        size = 1,
-
-        -- Freeze position and angle for now
-        pos = pos,
-        nrm = nrm,
-    }
-
-    table.insert(self.LUADecals, lua_decal)
+    -- Debug: remove after 1 second
+    timer.Simple(1, function()
+        mdl:Remove()
+    end)
 end
 
--- Console command to add a decal.
-concommand.Add("lua_decals_add", function(ply)
+-- Command interface for adding a model layer
+concommand.Add("luadecals_addmodellayer", function(ply, cmd, args)
     local tr = ply:GetEyeTrace()
-    local ent = tr.Entity
-    
-    if !IsValid(ent) then return end
-
-    ent:LUADecals_Add("decals/concrete/shot1", tr.HitPos, tr.HitNormal)
-end)
-
--- Continuous hook.
-hook.Add("PostDrawTranslucentRenderables", "lua_decals", function()
-    for ent_tbl_idx = 1, #LUADecals.ents do
-        
-        local ent = LUADecals.ents[ent_tbl_idx]
-        
-        -- If entity went invalid, remove it from the list.
-        if !IsValid(ent) then 
-            table.remove(LUADecals.ents, ent_tbl_idx)
-            continue
-        end
-
-        -- Make sure decal table exists.
-        if !ent.LUADecals then
-            error("LUADecals: Entity in global list but has no .LUADecals table!")
-        end
-
-        -- Get meshes for this entity.
-        -- local meshes = util.GetModelMeshes(ent:GetModel())
-        -- if !meshes then 
-        --     -- No meshes, fine, skip
-        --     continue 
-        -- end
-
-        -- Draw each decal on this entity.
-        for decal_idx = 1, #ent.LUADecals do
-            local lua_decal = ent.LUADecals[decal_idx]
-            
-            -- 
-        end
-    end
+    tr.Entity:LUADecals_AddModelLayer()
 end)
