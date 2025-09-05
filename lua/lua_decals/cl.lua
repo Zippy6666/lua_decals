@@ -93,6 +93,68 @@ function ENT:LUADecals_Add(
     end
 end
 
+-- Fire bullet hook, will only exist in multiplayer!
+local didBulletHook = false
+hook.Add("EntityFireBullets", "luadecals_bulletimpact", function( ent, data )
+    if didBulletHook then return end
+
+    data.Callback = conv.wrapFunc2( data.Callback or function(...) end, nil, function(_, attacker, tr)
+        tr.Entity:LUADecals_Add(Material("decals/flesh/blood1"), tr.HitPos, tr.HitNormal, color_white, 1, 1, 5 )
+    end)
+
+    didBulletHook = true
+    hook.Run("EntityFireBullets", ent, data)
+    didBulletHook = false
+
+    return true
+end)
+
+-- Transfer entity's decal layers onto server ragdoll
+hook.Add("EntityRemoved", "luadecals_transfer_to_rag", function( ent )
+    if !ent.LUADecals_ModelLayers then return end
+
+    local fndEntToTransferTo = false
+
+    if ent:IsNPC() || ent:IsNextBot() then
+        -- Find nearby ents when removed
+        -- if it is a ragdoll with its model
+        -- transfer layers to it
+        for _, fndEnt in ipairs(ents.FindInSphere(ent:GetPos(), 50)) do
+            if fndEnt:GetClass() == "prop_ragdoll" && fndEnt:GetModel()==ent:GetModel() then
+                for _, mdlLayer in ipairs(ent.LUADecals_ModelLayers) do
+                    mdlLayer:SetParent(fndEnt)
+                end
+
+                -- Hold reference to old entitys layer table
+                fndEnt.LUADecals_ModelLayers = ent.LUADecals_ModelLayers
+
+                -- Copy decal count
+                fndEnt.LUADecals_nAppliedDecals = ent.LuaDecals_nAppliedDecals
+
+                fndEntToTransferTo = true
+                break
+            end
+        end
+    end
+
+    -- Remove decal layers of removed entity if no
+    -- ent found to transfer to
+    if !fndEntToTransferTo then
+        for _, mdlLayer in ipairs(ent.LUADecals_ModelLayers) do
+            mdlLayer:Remove()
+        end
+
+        print("found nothing to transfer to")
+    end
+end)
+
+-- Transfer entity's decal layers when the entity turns into a client ragdoll
+hook.Add("CreateClientsideRagdoll", "luadecals_tranfer", function( ent, rag )
+    for _, mdlLayer in ipairs(ent.LUADecals_ModelLayers or {}) do
+        mdlLayer:SetParent(rag)
+    end
+end)
+
 -- Command interface for adding a model layer
 concommand.Add("luadecals_addmodellayer", function(ply, cmd, args)
     local tr = ply:GetEyeTrace()
@@ -103,5 +165,5 @@ end)
 concommand.Add("luadecals_add", function(ply, cmd, args)
     local tr = ply:GetEyeTrace()
 
-    tr.Entity:LUADecals_Add(Material("decals/flesh/blood1"), tr.HitPos, tr.HitNormal, color_white, 1, 1, 8 )
+    tr.Entity:LUADecals_Add(Material("decals/flesh/blood1"), tr.HitPos, tr.HitNormal, color_white, 1, 1, 5 )
 end)
