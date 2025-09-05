@@ -1,5 +1,24 @@
-local ENT = FindMetaTable("Entity")
-local invis = Color(255,255,255,1)
+local ENT           = FindMetaTable("Entity")
+local invis         = Color(255,255,255,1)
+local didBulletHook = false
+local mat1          = Material("decals/flesh/blood1")
+local mat2          = Material("decals/flesh/blood2")
+local mat3          = Material("decals/flesh/blood3")
+local mat4          = Material("decals/flesh/blood4")
+local mat5          = Material("decals/flesh/blood5")
+local alienmat1     = Material("decals/alienflesh/shot1")
+local alienmat2     = Material("decals/alienflesh/shot2")
+local alienmat3     = Material("decals/alienflesh/shot3")
+local alienmat4     = Material("decals/alienflesh/shot4")
+local alienmat5     = Material("decals/alienflesh/shot5")
+local antmat1       = Material("decals/antlion/shot1")
+local antmat2       = Material("decals/antlion/shot2")
+local antmat3       = Material("decals/antlion/shot3")
+local antmat4       = Material("decals/antlion/shot4")
+local antmat5       = Material("decals/antlion/shot5")
+local fleshMats     = {mat1, mat2, mat3, mat4, mat5}
+local alienMats     = {alienmat1, alienmat2, alienmat3, alienmat4, alienmat5}
+local antlionMats   = {antmat1, antmat2, antmat3, antmat4, antmat5}
 
 -- Adds another model duplicate that renders on top of the original model, 
 -- this model can then have decals applied to it
@@ -8,7 +27,7 @@ local invis = Color(255,255,255,1)
 function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
     self.LUADecals_ModelLayers = self.LUADecals_ModelLayers or {}
 
-    local mdlLayer = ClientsideModel(self:GetModel(), RENDERGROUP_OPAQUE)
+    local mdlLayer = ClientsideModel(self:GetModel(), RENDERGROUP_TRANSLUCENT)
     if !mdlLayer then 
         return 
     end
@@ -35,7 +54,7 @@ function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
     mdlLayer:CONV_StoreInTable(self.LUADecals_ModelLayers)
 
     -- Debug: Remove after delay.
-    SafeRemoveEntityDelayed(mdlLayer, 30)
+    -- SafeRemoveEntityDelayed(mdlLayer, 30)
 
     print("NEW layer created", mdlLayer)
 
@@ -93,13 +112,24 @@ function ENT:LUADecals_Add(
     end
 end
 
--- Fire bullet hook, will only exist in multiplayer!
-local didBulletHook = false
+-- Fire bullet hook clientside, will only exist in multiplayer!
 hook.Add("EntityFireBullets", "luadecals_bulletimpact", function( ent, data )
     if didBulletHook then return end
 
     data.Callback = conv.wrapFunc2( data.Callback or function(...) end, nil, function(_, attacker, tr)
-        tr.Entity:LUADecals_Add(Material("decals/flesh/blood1"), tr.HitPos, tr.HitNormal, color_white, 1, 1, 5 )
+        local mat
+        if tr.MatType == MAT_ANTLION then
+            mat = antlionMats[math.random(1, #antlionMats)]
+        elseif tr.MatType == MAT_FLESH then
+            mat = fleshMats[math.random(1, #fleshMats)]
+        elseif tr.MatType == MAT_ALIENFLESH then
+            mat = alienMats[math.random(1, #alienMats)]
+        end
+
+        if mat then
+            print(mat)
+            tr.Entity:LUADecals_Add(mat, tr.HitPos, tr.HitNormal, color_white, 1, 1, 5 )
+        end
     end)
 
     didBulletHook = true
@@ -153,6 +183,8 @@ hook.Add("CreateClientsideRagdoll", "luadecals_tranfer", function( ent, rag )
     for _, mdlLayer in ipairs(ent.LUADecals_ModelLayers or {}) do
         mdlLayer:SetParent(rag)
     end
+
+    ent.LUADecals_ModelLayers = nil -- Point layer table of ent back at nothing
 end)
 
 -- Command interface for adding a model layer
