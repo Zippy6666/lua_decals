@@ -139,6 +139,29 @@ hook.Add("EntityFireBullets", "luadecals_bulletimpact", function( ent, data )
     return true
 end)
 
+-- Single player alternative to the hook above..
+net.Receive("luadecals_sendBulletImpactToCl", function()
+    local pos =    net.ReadVector()
+    local nrm =    net.ReadNormal()
+    local matType =    net.ReadUInt(7)
+    local ent =    net.ReadEntity()     
+
+    if IsValid(ent) then
+        local mat
+        if matType == MAT_ANTLION then
+            mat = antlionMats[math.random(1, #antlionMats)]
+        elseif matType == MAT_FLESH then
+            mat = fleshMats[math.random(1, #fleshMats)]
+        elseif matType == MAT_ALIENFLESH then
+            mat = alienMats[math.random(1, #alienMats)]
+        end
+
+        if mat then
+            ent:LUADecals_Add(mat, pos, nrm, color_white, 1, 1, 5 )
+        end
+    end
+end)
+
 -- Transfer entity's decal layers onto server ragdoll
 hook.Add("EntityRemoved", "luadecals_transfer_to_rag", function( ent )
     if !ent.LUADecals_ModelLayers then return end
