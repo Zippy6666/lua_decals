@@ -20,6 +20,16 @@ local fleshMats     = {mat1, mat2, mat3, mat4, mat5}
 local alienMats     = {alienmat1, alienmat2, alienmat3, alienmat4, alienmat5}
 local antlionMats   = {antmat1, antmat2, antmat3, antmat4, antmat5}
 local preventDecalExWrapper = false
+local developer = GetConVar("developer")
+
+LUADecals.layers = LUADecals.layers or {}
+
+-- Debug
+-- hook.Add("Think", "luadecals_debug", function()
+--     if !developer:GetBool() then return end
+
+--     debugoverlay.ScreenText(0.4, 0.4, "LUA DECAL LAYERS: "..LUADecals.globalNLayers, 0, color_white)
+-- end)
 
 -- Adds another model duplicate that renders on top of the original model, 
 -- this model can then have decals applied to it
@@ -34,6 +44,8 @@ function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
     if !mdlLayer then 
         return 
     end
+
+    mdlLayer.LUADecals_IsLayer = true
 
     -- Mimic the original entity's position and angles
     mdlLayer:SetPos(self:GetPos())
@@ -55,9 +67,6 @@ function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
 
     -- Add to entity's model layers table
     mdlLayer:CONV_StoreInTable(self.LUADecals_ModelLayers)
-
-    -- Debug: Remove after delay.
-    -- SafeRemoveEntityDelayed(mdlLayer, 30)
 
     return mdlLayer
 end
@@ -87,8 +96,6 @@ function ENT:LUADecals_Add(
 
     -- No model layers yet, then add our first
     if !self.LUADecals_ModelLayers then
-        print("creating first layer for", self)
-
         mdlLayer = self:LUADecals_AddModelLayer()
         layerN = 1
     else
@@ -114,7 +121,7 @@ function ENT:LUADecals_Add(
 
         -- Increment decal count
         mdlLayer.LuaDecals_nAppliedDecals = mdlLayer.LuaDecals_nAppliedDecals + 1
-        print(material, mdlLayer.LuaDecals_nAppliedDecals, "decals added to", self, ", layer number: ", layerN)
+        MsgN(material:GetName(), " [Layer: ", layerN, ", nDecals: ", mdlLayer.LuaDecals_nAppliedDecals, "]")
         
         -- Success
         return true
@@ -122,6 +129,9 @@ function ENT:LUADecals_Add(
 
     return false
 end
+
+-- hook.Add("EntityRemoved", "luadecals_track_layers", function( ent )
+-- end)
 
 -- EXPERIMENTAL: Add a wrapper for util.DecalEx so that fancy blood mods
 -- utilize this system unwillingly
@@ -153,7 +163,6 @@ hook.Add("EntityFireBullets", "luadecals_bulletimpact", function( ent, data )
         end
 
         if mat then
-            print(mat)
             tr.Entity:LUADecals_Add(mat, tr.HitPos, tr.HitNormal, color_white, 1, 1, 5 )
         end
     end)
@@ -222,8 +231,6 @@ hook.Add("EntityRemoved", "luadecals_transfer_to_rag", function( ent )
         for _, mdlLayer in ipairs(ent.LUADecals_ModelLayers) do
             mdlLayer:Remove()
         end
-
-        print("found nothing to transfer to")
     end
 end)
 

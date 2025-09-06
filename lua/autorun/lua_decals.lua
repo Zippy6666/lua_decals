@@ -27,6 +27,6 @@ hook.Add("PlayerInitialSpawn", "MissingConvMsg2", function( ply )
 end)
 --[[============================ CONV MESSAGE END ============================]]--
 
--- LUADecals = LUADecals or {}
+LUADecals = LUADecals or {}
 
 conv.includeDir("lua_decals")
