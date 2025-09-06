@@ -127,6 +127,11 @@ function ENT:LUADecals_Add(
         -- ..we have model layers, get the latest one
         mdlLayer = self.LUADecals_ModelLayers[#self.LUADecals_ModelLayers]
 
+        if !IsValid(mdlLayer) then
+            -- This should not happen (i think, but it does so..)...
+            return false
+        end
+
         -- If this layer has reached its limit..
         if mdlLayer.LuaDecals_nAppliedDecals >= n_limit then
             -- Add a new one:
