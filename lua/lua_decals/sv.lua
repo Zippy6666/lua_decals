@@ -7,6 +7,9 @@ local didBulletHook = false
 hook.Add("EntityFireBullets", "luadecals_bulletimpact", function( ent, data )
     if didBulletHook then return end
 
+    -- Default wounds disabled for LUA decals...
+    if Entity(1):GetInfoNum("luadecals_enable", 0) == 0 then return end
+
     data.Callback = conv.wrapFunc2( data.Callback or function(...) end, nil, function(_, attacker, tr)
         net.Start("luadecals_sendBulletImpactToCl")
         net.WriteVector(tr.HitPos)

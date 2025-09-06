@@ -22,14 +22,34 @@ local antlionMats   = {antmat1, antmat2, antmat3, antmat4, antmat5}
 local preventDecalExWrapper = false
 local developer = GetConVar("developer")
 
+-- Global layer table
 LUADecals.layers = LUADecals.layers or {}
 
--- Debug
--- hook.Add("Think", "luadecals_debug", function()
---     if !developer:GetBool() then return end
+LUADecals.luadecals_enable = CreateClientConVar("luadecals_enable", 1, true, true, 
+                                                "Enable LUA decals for default character wounds.", 
+                                                0, 1)
+LUADecals.luadecals_debug = CreateClientConVar("luadecals_debug", 0, true, false, 
+                                                "Show information about LUA decals if developer was set to 1.", 
+                                                0, 1)
 
---     debugoverlay.ScreenText(0.4, 0.4, "LUA DECAL LAYERS: "..LUADecals.globalNLayers, 0, color_white)
--- end)
+-- Debug
+hook.Add("Think", "luadecals_debug", function()
+    if !developer:GetBool() then return end
+    if !LUADecals.luadecals_debug:GetBool() then return end
+
+    debugoverlay.ScreenText(0.4, 0.4, "LUA DECAL LAYERS: "..#LUADecals.layers, 0, color_white)
+    
+    for i = 1, #LUADecals.layers do
+        debugoverlay.Axis(LUADecals.layers[i]:GetPos(), LUADecals.layers[i]:GetAngles(), 64, 0, true)
+    end
+end)
+
+-- Clean up any layers that for some reason still remain on map clean up
+hook.Add("PostCleanupMap", "luadecals_cleanup", function()
+    for i = 1, #LUADecals.layers do
+        LUADecals.layers[i]:Remove()
+    end
+end)
 
 -- Adds another model duplicate that renders on top of the original model, 
 -- this model can then have decals applied to it
@@ -40,7 +60,7 @@ function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
     
     self.LUADecals_ModelLayers = self.LUADecals_ModelLayers or {}
 
-    local mdlLayer = ClientsideModel(self:GetModel(), RENDERGROUP_TRANSLUCENT)
+    local mdlLayer = ClientsideModel(self:GetModel(), RENDERGROUP_BOTH)
     if !mdlLayer then 
         return 
     end
@@ -67,6 +87,7 @@ function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
 
     -- Add to entity's model layers table
     mdlLayer:CONV_StoreInTable(self.LUADecals_ModelLayers)
+    mdlLayer:CONV_StoreInTable(LUADecals.layers) -- Add to global layer table
 
     return mdlLayer
 end
@@ -121,17 +142,17 @@ function ENT:LUADecals_Add(
 
         -- Increment decal count
         mdlLayer.LuaDecals_nAppliedDecals = mdlLayer.LuaDecals_nAppliedDecals + 1
-        MsgN(material:GetName(), " [Layer: ", layerN, ", nDecals: ", mdlLayer.LuaDecals_nAppliedDecals, "]")
         
+        if LUADecals.luadecals_debug:GetBool() then
+            MsgN(material:GetName(), " [Layer: ", layerN, ", nDecals: ", mdlLayer.LuaDecals_nAppliedDecals, "]")
+        end
+
         -- Success
         return true
     end
 
     return false
 end
-
--- hook.Add("EntityRemoved", "luadecals_track_layers", function( ent )
--- end)
 
 -- EXPERIMENTAL: Add a wrapper for util.DecalEx so that fancy blood mods
 -- utilize this system unwillingly
@@ -151,6 +172,9 @@ end)
 -- Fire bullet hook clientside, will only exist in multiplayer!
 hook.Add("EntityFireBullets", "luadecals_bulletimpact", function( ent, data )
     if didBulletHook then return end
+
+    -- Default wounds disabled for LUA decals...
+    if !LUADecals.luadecals_enable:GetBool() then return end
 
     data.Callback = conv.wrapFunc2( data.Callback or function(...) end, nil, function(_, attacker, tr)
         local mat
@@ -175,6 +199,8 @@ hook.Add("EntityFireBullets", "luadecals_bulletimpact", function( ent, data )
 end)
 
 -- Single player alternative to the hook above..
+-- NOTE: This message is only sent if luadecals_enabled is 1
+-- for the user
 net.Receive("luadecals_sendBulletImpactToCl", function()
     local pos =    net.ReadVector()
     local nrm =    net.ReadNormal()
