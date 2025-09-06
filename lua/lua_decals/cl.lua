@@ -242,16 +242,3 @@ hook.Add("CreateClientsideRagdoll", "luadecals_tranfer", function( ent, rag )
 
     ent.LUADecals_ModelLayers = nil -- Point layer table of ent back at nothing
 end)
-
--- Command interface for adding a model layer
-concommand.Add("luadecals_addmodellayer", function(ply, cmd, args)
-    local tr = ply:GetEyeTrace()
-    tr.Entity:LUADecals_AddModelLayer()
-end)
-
--- Command interface for applying decal
-concommand.Add("luadecals_add", function(ply, cmd, args)
-    local tr = ply:GetEyeTrace()
-
-    tr.Entity:LUADecals_Add(Material("decals/flesh/blood1"), tr.HitPos, tr.HitNormal, color_white, 1, 1, 5 )
-end)
