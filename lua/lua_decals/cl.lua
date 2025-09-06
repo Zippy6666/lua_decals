@@ -19,7 +19,7 @@ local antmat5       = Material("decals/antlion/shot5")
 local fleshMats     = {mat1, mat2, mat3, mat4, mat5}
 local alienMats     = {alienmat1, alienmat2, alienmat3, alienmat4, alienmat5}
 local antlionMats   = {antmat1, antmat2, antmat3, antmat4, antmat5}
-local preventUtilDecalEXWrapper = false
+local preventDecalExWrapper = false
 
 -- Adds another model duplicate that renders on top of the original model, 
 -- this model can then have decals applied to it
@@ -44,7 +44,7 @@ function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
     mdlLayer:AddEffects(EF_BONEMERGE)
 
     -- Make barely visible
-    mdlLayer:SetRenderMode(RENDERMODE_TRANSCOLOR)
+    mdlLayer:SetRenderMode(RENDERMODE_TRANSADD)
     mdlLayer:SetColor(invis)
 
     -- Keep track of number of decals on layer
@@ -59,8 +59,6 @@ function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
     -- Debug: Remove after delay.
     -- SafeRemoveEntityDelayed(mdlLayer, 30)
 
-    print("NEW layer created", mdlLayer)
-
     return mdlLayer
 end
 
@@ -69,6 +67,8 @@ end
 -- create a new layer and start applying to it instead,
 -- until that one fills up as well, and move on to the next layer
 -- and so on..
+-- Returns:
+--      bool: true if success, else false
 function ENT:LUADecals_Add(
     material,   -- : Material
     pos,        -- : Vector
@@ -77,58 +77,65 @@ function ENT:LUADecals_Add(
     width,      -- : number
     height,     -- : number
     n_limit     -- : number
-) --> nil
-    if self:IsWorld() then return end -- This is not supported for the world
+) --> bool
+    if self:IsWorld() then return false end -- This is not supported for the world
 
-    -- Init n applied decals counter
-    self.LuaDecals_nAppliedDecals = self.LuaDecals_nAppliedDecals or 0
+    -- Apply to layer
 
-    local entToApplyTo = self
+    local mdlLayer
+    local layerN
 
-    -- Apply to layer instead if limit reached
-    if self.LuaDecals_nAppliedDecals >= n_limit then
-        local mdlLayer
+    -- No model layers yet, then add our first
+    if !self.LUADecals_ModelLayers then
+        print("creating first layer for", self)
 
-        -- No model layers yet, then add our first
-        if !self.LUADecals_ModelLayers then
-            print("creating first layer for", self)
+        mdlLayer = self:LUADecals_AddModelLayer()
+        layerN = 1
+    else
+        -- ..we have model layers, get the latest one
+        mdlLayer = self.LUADecals_ModelLayers[#self.LUADecals_ModelLayers]
+
+        -- If this layer has reached its limit..
+        if mdlLayer.LuaDecals_nAppliedDecals >= n_limit then
+            -- Add a new one:
             mdlLayer = self:LUADecals_AddModelLayer()
-        else
-            -- ..we have model layers, get the latest one
-            mdlLayer = self.LUADecals_ModelLayers[#self.LUADecals_ModelLayers]
-
-            -- If this layer has reached its limit..
-            if mdlLayer.LuaDecals_nAppliedDecals >= n_limit then
-                -- Add a new one:
-                mdlLayer = self:LUADecals_AddModelLayer()
-            end
         end
 
-        entToApplyTo = mdlLayer
+        layerN = #self.LUADecals_ModelLayers
     end
 
-    -- Apply decal
-    if IsValid(entToApplyTo) then
-        preventUtilDecalEXWrapper = true
-        util.DecalEx(material, entToApplyTo, pos, nrm, col, width, height)
-        print(material)
-        preventUtilDecalEXWrapper = false
+    if IsValid(mdlLayer) then
+        -- Prevent endless loop with wrapper func
+        preventDecalExWrapper = true
+
+        -- Apply decal
+        util.DecalEx(material, mdlLayer, pos, nrm, col, width, height)
+        preventDecalExWrapper = false
 
         -- Increment decal count
-        entToApplyTo.LuaDecals_nAppliedDecals = entToApplyTo.LuaDecals_nAppliedDecals + 1
-        print(entToApplyTo.LuaDecals_nAppliedDecals, "decals added to", entToApplyTo)
+        mdlLayer.LuaDecals_nAppliedDecals = mdlLayer.LuaDecals_nAppliedDecals + 1
+        print(material, mdlLayer.LuaDecals_nAppliedDecals, "decals added to", self, ", layer number: ", layerN)
+        
+        -- Success
+        return true
     end
+
+    return false
 end
 
 -- EXPERIMENTAL: Add a wrapper for util.DecalEx so that fancy blood mods
 -- utilize this system unwillingly
 util.DecalEx = conv.wrapFunc( "luadecals_override", util.DecalEx, function(material, entToApplyTo, pos, nrm, col, width, height)
-    if preventUtilDecalEXWrapper then return end
+    if preventDecalExWrapper then return end
 
     -- Override
-    entToApplyTo:LUADecals_Add(material, pos, nrm, col, width, height, 3)
-
-    return true -- return something to skip rest of call
+    local success = entToApplyTo:LUADecals_Add(material, pos, nrm, col, width, height, 3)
+    
+    if success == true then
+        -- Don't return success directly!! returning false here would still skip the
+        -- regular call
+        return true
+    end
 end)
 
 -- Fire bullet hook clientside, will only exist in multiplayer!
