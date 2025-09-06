@@ -23,10 +23,14 @@ local preventDecalExWrapper = false
 local developer = GetConVar("developer")
 
 -- Global layer table
-LUADecals.layers = LUADecals.layers or {}
+LUADecals.layers = LUADecals.layers || {}
 
+-- CVARS
 LUADecals.luadecals_enable = CreateClientConVar("luadecals_enable", 1, true, true, 
                                                 "Enable LUA decals for default character wounds.", 
+                                                0, 1)
+LUADecals.luadecals_force = CreateClientConVar("luadecals_force", 0, true, false, 
+                                                "Force LUA decal system for custom LUA blood mods.", 
                                                 0, 1)
 LUADecals.luadecals_debug = CreateClientConVar("luadecals_debug", 0, true, false, 
                                                 "Show information about LUA decals if developer was set to 1.", 
@@ -58,7 +62,7 @@ end)
 function ENT:LUADecals_AddModelLayer() --> CSEnt | nil
     if self:IsWorld() then return end -- This is not supported for the world
     
-    self.LUADecals_ModelLayers = self.LUADecals_ModelLayers or {}
+    self.LUADecals_ModelLayers = self.LUADecals_ModelLayers || {}
 
     local mdlLayer = ClientsideModel(self:GetModel(), RENDERGROUP_BOTH)
     if !mdlLayer then 
@@ -158,6 +162,7 @@ end
 -- utilize this system unwillingly
 util.DecalEx = conv.wrapFunc( "luadecals_override", util.DecalEx, function(material, entToApplyTo, pos, nrm, col, width, height)
     if preventDecalExWrapper then return end
+    if !LUADecals.luadecals_force:GetBool() then return end
 
     -- Override
     local success = entToApplyTo:LUADecals_Add(material, pos, nrm, col, width, height, 3)
@@ -176,7 +181,7 @@ hook.Add("EntityFireBullets", "luadecals_bulletimpact", function( ent, data )
     -- Default wounds disabled for LUA decals...
     if !LUADecals.luadecals_enable:GetBool() then return end
 
-    data.Callback = conv.wrapFunc2( data.Callback or function(...) end, nil, function(_, attacker, tr)
+    data.Callback = conv.wrapFunc2( data.Callback || function(...) end, nil, function(_, attacker, tr)
         local mat
         if tr.MatType == MAT_ANTLION then
             mat = antlionMats[math.random(1, #antlionMats)]
@@ -262,7 +267,7 @@ end)
 
 -- Transfer entity's decal layers when the entity turns into a client ragdoll
 hook.Add("CreateClientsideRagdoll", "luadecals_tranfer", function( ent, rag )
-    for _, mdlLayer in ipairs(ent.LUADecals_ModelLayers or {}) do
+    for _, mdlLayer in ipairs(ent.LUADecals_ModelLayers || {}) do
         mdlLayer:SetParent(rag)
     end
 
