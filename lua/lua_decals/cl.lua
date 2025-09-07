@@ -170,7 +170,7 @@ util.DecalEx = conv.wrapFunc( "luadecals_override", util.DecalEx, function(mater
     if !LUADecals.luadecals_force:GetBool() then return end
 
     -- Override
-    local success = entToApplyTo:LUADecals_Add(material, pos, nrm, col, width, height, 3)
+    local success = entToApplyTo:LUADecals_Add(material, pos, nrm, col, width, height, 5)
     
     if success == true then
         -- Don't return success directly!! returning false here would still skip the
